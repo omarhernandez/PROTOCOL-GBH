@@ -1,0 +1,5 @@
+[_TR4K]
+Project Define:
+IM=001.asm
+INCLUDE=001.inc
+GROUP=HBG

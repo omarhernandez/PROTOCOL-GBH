@@ -1,0 +1,1621 @@
+            ;; 
+            ;;40******T************50560******38.1K**** 
+            ;;INCLUDE BLOCK 
+            ;;;------------------------------------------------------------------------------ 
+        #INCLUDE     "021.INC"  
+        #INCLUDE     "CUSTOM.INC"  
+          
+            ;;;------------------------------------------------------------------------------ 
+            ;;R_FLAG 
+        F_KEYNOP		EQU	BIT0   F_KEYNOP=(00001h) 
+        F_KEYPRO		EQU	BIT1   F_KEYPRO=(00002h) 
+        F_SERIALKEY		EQU	BIT2   F_SERIALKEY=(00004h) 
+            ;;R_CTRLFLAG 
+        D_LEDCTRL		EQU	BIT0				    ;;LED ********  0: ****LED   1: **LED  D_LEDCTRL=(00001h) 
+        D_XTALCTRL		EQU	BIT1   D_XTALCTRL=(00002h) 
+            ;;;------------------------------------------------------------------------------ 
+        D_KEYDEBUNCEH		EQU	01H   D_KEYDEBUNCEH=(00001h) 
+        D_KEYDEBUNCEL		EQU	09H   D_KEYDEBUNCEL=(00009h) 
+        FRAMECYCTIMEH		EQU	03H		    ;;61.5  FRAMECYCTIMEH=(00003h) 
+        FRAMECYCTIMEL		EQU	0CH   FRAMECYCTIMEL=(0000ch) 
+            ;;;------------------------------------------------------------------------------ 
+            ;;USER SRAM 
+            ;;;------------------------------------------------------------------------------ 
+            ;;;MAH = 0 
+        R_KEYCOUNT		EQU	20H				    ;;******  R_KEYCOUNT=(00020h) 
+        R_KEYDEBUNCEL		EQU	21H   R_KEYDEBUNCEL=(00021h) 
+        R_KEYBUFL		EQU	22H   R_KEYBUFL=(00022h) 
+        R_KEYBUFH		EQU	23H   R_KEYBUFH=(00023h) 
+        R_XORKEYVALH		EQU	24H   R_XORKEYVALH=(00024h) 
+        R_XORKEYVALL		EQU	25H   R_XORKEYVALL=(00025h) 
+        R_KEYVALH		EQU	26H				    ;;****H  R_KEYVALH=(00026h) 
+        R_KEYVALL		EQU	27H				    ;;****L  R_KEYVALL=(00027h) 
+        R_IRDATA0H		EQU	28H   R_IRDATA0H=(00028h) 
+        R_IRDATA0L		EQU	29H   R_IRDATA0L=(00029h) 
+        R_IRDATA1H		EQU	2AH   R_IRDATA1H=(0002ah) 
+        R_IRDATA1L		EQU	2BH   R_IRDATA1L=(0002bh) 
+        R_SHIFTBUFH		EQU	2CH   R_SHIFTBUFH=(0002ch) 
+        R_SHIFTBUFL		EQU	2DH   R_SHIFTBUFL=(0002dh) 
+        R_MAINTIMEH		EQU	2EH   R_MAINTIMEH=(0002eh) 
+        R_MAINTIMEL		EQU	2FH   R_MAINTIMEL=(0002fh) 
+        R_KEYNUMH		EQU	30H   R_KEYNUMH=(00030h) 
+        R_KEYNUML		EQU	31H   R_KEYNUML=(00031h) 
+        R_FLAG			EQU	32H   R_FLAG=(00032h) 
+        R_TEMP1			EQU	33H   R_TEMP1=(00033h) 
+        R_TEMP2			EQU	34H   R_TEMP2=(00034h) 
+        R_TEMP3			EQU	35H   R_TEMP3=(00035h) 
+        R_KEYVALL_C		EQU	36H   R_KEYVALL_C=(00036h) 
+        R_KEYVALH_C		EQU	37H   R_KEYVALH_C=(00037h) 
+        R_KEYCNT		EQU	38H   R_KEYCNT=(00038h) 
+        R_CTRLFLAG		EQU	39H   R_CTRLFLAG=(00039h) 
+        R_KEYDEBUNCEH		EQU	3AH   R_KEYDEBUNCEH=(0003ah) 
+        MANAGE_REPEAT_COMMUN    EQU     3BH   MANAGE_REPEAT_COMMUN=(0003bh) 
+            ;;------------------------------------------------------------------------- 
+        MACRO	%CLRWDT  
+        LD	A,#05H  
+        LD	(WDT),A					    ;; CLEAR WATCH DOG TIMER 
+            ENDM  
+            ;;------------------------------------------------------------------------- 
+        MACRO	%LED_ON  
+        LD	A,(R_CTRLFLAG)  
+        AND	A,#D_LEDCTRL  
+        LDPCH	NO_LED  
+        JZ	NO_LED  
+        LED_ON:  
+        LD	A,#2  
+        LD	(PC_CTRL),A				    ;;SETTING PC0 OUTPUT,LOW 
+        NO_LED:  
+            ENDM  
+            ;;------------------------------------------------------------------------- 
+        MACRO	%LED_OFF  
+        LD	A,(R_CTRLFLAG)  
+        AND	A,#D_LEDCTRL  
+        LDPCH	NO_LED  
+        JZ	NO_LED  
+        LED_OFF:  
+        LD	A,#3  
+        LD	(PC_CTRL),A				    ;;SETTING PC0 OUTPUT,HIGH 
+        NO_LED:  
+            ENDM  
+            ;;------------------------------------------------------------------------- 
+        MACRO	%GET_OPTION_SET  
+        LD	A,#T_LED_XTAL_CTRL.N2  
+        LD	(DMA2),A  
+        LD	A,#T_LED_XTAL_CTRL.N1  
+        LD	(DMA1),A  
+        LD	A,#T_LED_XTAL_CTRL.N0				    ;; PROM ADDRESS 
+        LD	(DMA0),A  
+          
+        LD	A,(DMDL)  
+        LD	(R_CTRLFLAG),A  
+          
+            ENDM  
+            ;;------------------------------------------------------------------------- 
+        MACRO	%IO_OPTION_SET  
+            ;;===============OPTION PROCESS START===================================== 
+          
+        LD	A,(R_CTRLFLAG)  
+        AND	A,#D_LEDCTRL  
+        LDPCH	LED_NOT  
+        JZ	LED_NOT  
+        LED_YES:  
+            ;;PC0 AS LED CTRL 
+        LD	A,#3  
+        LD	(PC_CTRL),A				    ;;SETTING PC0 OUTPUT,HIGH 
+        LDPCH	LED_SET_OVER  
+        JMP	LED_SET_OVER  
+        LED_NOT:  
+            ;;PC0 AS I/O FOR KEYSCAN 
+        LD	A,#0DH					    ;;BIT1 CTRL IN/OUT 
+        LD	(PC_CTRL),A				    ;;SETTING PC0 INPUT,PULL HIGH 
+        LED_SET_OVER:  
+            ;;---------------- 
+        LD	A,(R_CTRLFLAG)  
+        AND	A,#D_XTALCTRL  
+        LDPCH	XTAL_IN  
+        JZ	XTAL_IN  
+        XTAL_OUT:  
+            ;;PB0,PB1 AS X'TAL PIN  (X'TAL OUT) 
+        LD	A,#0CH					    ;;PB0.PB1 AS X'TAL 
+        LD	EXIO(PBPU),A  
+        LD	EXIO(PBWK),A  
+        LDPCH	XTAL_SET_OVER  
+        JMP	XTAL_SET_OVER  
+        XTAL_IN:  
+            ;;PB0,PB1 AS I/O   (X'TAL IN) 
+        LD	A,#0FH					    ;;PB0.PB1 AS I/O 
+        LD	EXIO(PBPU),A  
+        LD	EXIO(PBWK),A  
+        XTAL_SET_OVER:  
+            ;;===============OPTION PROCESS END======================================= 
+            ;;INITAL OTHER I/O 
+            ;;   	    	'0'=INPUT, '1'=OUTPUT 
+        LD	A,#0  
+        LD	(IOC_PA),A  
+        LD	(IOC_PB),A  
+        LD	(IOC_PD),A				    ;;ALL AS INPUT 
+          
+            ;;   	    	"0": PULL UP DISABLE  "1": PULL UP ENABLE 
+        LD	A,#0FH  
+        LD	EXIO(PAPU),A  
+        LD	EXIO(PDPU),A  
+          
+            ;;   	    	"0": WAKE UP DISABLE  "1": WAKE UP ENABLE 
+        LD	A,#0FH  
+        LD	EXIO(PAWK),A				    ;;PA2 IS LED , DON'T WAKEUP 
+        LD	EXIO(PDWK),A  
+            ENDM  
+            ;;------------------------------------------------------------------------- 
+        MACRO %NOP_20  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+          
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+            ENDM  
+        MACRO %NOP_10  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+        NOP  
+            ENDM  
+            ;;------------------- 
+            ;;PROGRAM START 
+            ;;------------------- 
+        ORG	0  
+0000:		LDPCH	RESET
+0001:		JMP	RESET
+0002:		NOP
+0003:		NOP
+0004:		LDPCH	WAKEUP
+0005:		JMP	WAKEUP
+0006:		NOP
+0007:		NOP
+        INT:  
+0008:		NOP
+0009:		RETI
+            ;;------------------- 
+            ;;MAIN PROGRAM 
+            ;;------------------- 
+            ;;		ORG	100H 
+        RESET:  
+            ;;POWER ON, IR OUTPUT HIGH 
+000A:		LD	A,#08H
+000B:		LD	(IR_DIV),A	;;PC1	OUTPUT	HIGH
+000C:		LD	A,#3
+000D:		LD	(PC_CTRL),A	;;SETTING	PC0	OUTPUT,HIGH
+          
+        %GET_OPTION_SET  
+000E:		LD	A,#T_LED_XTAL_CTRL.N2
+000F:		LD	(DMA2),A
+0010:		LD	A,#T_LED_XTAL_CTRL.N1
+0011:		LD	(DMA1),A
+0012:		LD	A,#T_LED_XTAL_CTRL.N0	;;	PROM	ADDRESS
+0013:		LD	(DMA0),A
+            
+0014:		LD	A,(DMDL)
+0015:		LD	(R_CTRLFLAG),A
+            
+        WAKEUP:  
+            ;;		%IO_OPTION_SET 
+          
+0016:		LD	A,#09H
+0017:		LD	(SCALER1),A	;;	ENABLE	TIMER	MCLK/4096
+            ;;		LD	A,#0BH 
+            ;;		LD	(SCALER1),A				; ENABLE TIMER MCLK/1024 
+        CLRRAM:  
+0018:		LD	A,#00H
+0019:		LD	(R_KEYCOUNT),A
+001A:		LD	(R_KEYDEBUNCEL),A
+001B:		LD	(R_KEYDEBUNCEH),A
+001C:		LD	(R_KEYBUFL),A
+001D:		LD	(R_KEYBUFH),A
+001E:		LD	(R_XORKEYVALH),A
+001F:		LD	(R_XORKEYVALL),A
+0020:		LD	(R_KEYVALH),A
+0021:		LD	(R_KEYVALL),A
+0022:		LD	(R_IRDATA0H),A
+0023:		LD	(R_IRDATA0L),A
+0024:		LD	(R_IRDATA1H),A
+0025:		LD	(R_IRDATA1L),A
+0026:		LD	(R_SHIFTBUFH),A
+0027:		LD	(R_SHIFTBUFL),A
+0028:		LD	(R_MAINTIMEH),A
+0029:		LD	(R_MAINTIMEL),A
+002A:		LD	(R_KEYNUMH),A
+002B:		LD	(R_KEYNUML),A
+002C:		LD	(R_FLAG),A
+002D:		LD	(R_KEYCNT),A
+          
+            ;;************************************************************************************* 
+            ;;		MAIN 
+            ;;************************************************************************************* 
+        MAIN_LOOP:  
+        %CLRWDT  
+002E:		LD	A,#05H
+002F:		LD	(WDT),A	;;	CLEAR	WATCH	DOG	TIMER
+0030:		LD	A,(TIM1_L)
+0031:		CMP	A,(R_MAINTIMEL)
+0032:		LDPCH	MAIN_LOOP_S
+0033:		JNZ	MAIN_LOOP_S
+0034:		LD	A,(TIM1_H)
+0035:		CMP	A,(R_MAINTIMEH)
+0036:		LDPCH	MAIN_LOOP
+0037:		JZ	MAIN_LOOP
+        MAIN_LOOP_S:  
+0038:		LDPCH	KEYSCAN
+0039:		JMP	KEYSCAN
+        KEYSCANOVER:  
+003A:		LDPCH	SENDCONTROL
+003B:		JMP	SENDCONTROL
+        SENDCONTROLBACK:  
+003C:		LDPCH	SLEEPCONTROL
+003D:		CALL	SLEEPCONTROL
+          
+003E:		LD	A,(TIM1_L)
+003F:		LD	(R_MAINTIMEL),A
+0040:		LD	A,(TIM1_H)
+0041:		LD	(R_MAINTIMEH),A
+0042:		LDPCH	MAIN_LOOP
+0043:		JMP	MAIN_LOOP
+          
+            ;;************************************************************************************* 
+            ;;	KEY	SCAN 
+            ;;************************************************************************************* 
+        KEYSCAN:  
+            ;;*********************************** SCAN POTRC 
+        %IO_OPTION_SET  
+              ;;===============OPTION PROCESS START===================================== 
+            
+0044:		LD	A,(R_CTRLFLAG)
+0045:		AND	A,#D_LEDCTRL
+0046:		LDPCH	LED_NOT
+0047:		JZ	LED_NOT
+          LED_YES:  
+              ;;PC0 AS LED CTRL 
+0048:		LD	A,#3
+0049:		LD	(PC_CTRL),A	;;SETTING	PC0	OUTPUT,HIGH
+004A:		LDPCH	LED_SET_OVER
+004B:		JMP	LED_SET_OVER
+          LED_NOT:  
+              ;;PC0 AS I/O FOR KEYSCAN 
+004C:		LD	A,#0DH	;;BIT1	CTRL	IN/OUT
+004D:		LD	(PC_CTRL),A	;;SETTING	PC0	INPUT,PULL	HIGH
+          LED_SET_OVER:  
+              ;;---------------- 
+004E:		LD	A,(R_CTRLFLAG)
+004F:		AND	A,#D_XTALCTRL
+0050:		LDPCH	XTAL_IN
+0051:		JZ	XTAL_IN
+          XTAL_OUT:  
+              ;;PB0,PB1 AS X'TAL PIN  (X'TAL OUT) 
+0052:		LD	A,#0CH	;;PB0.PB1	AS	X'TAL
+0053:		LD	EXIO(PBPU),A
+0054:		LD	EXIO(PBWK),A
+0055:		LDPCH	XTAL_SET_OVER
+0056:		JMP	XTAL_SET_OVER
+          XTAL_IN:  
+              ;;PB0,PB1 AS I/O   (X'TAL IN) 
+0057:		LD	A,#0FH	;;PB0.PB1	AS	I/O
+0058:		LD	EXIO(PBPU),A
+0059:		LD	EXIO(PBWK),A
+          XTAL_SET_OVER:  
+              ;;===============OPTION PROCESS END======================================= 
+              ;;INITAL OTHER I/O 
+              ;;   	    	'0'=INPUT, '1'=OUTPUT 
+005A:		LD	A,#0
+005B:		LD	(IOC_PA),A
+005C:		LD	(IOC_PB),A
+005D:		LD	(IOC_PD),A	;;ALL	AS	INPUT
+            
+              ;;   	    	"0": PULL UP DISABLE  "1": PULL UP ENABLE 
+005E:		LD	A,#0FH
+005F:		LD	EXIO(PAPU),A
+0060:		LD	EXIO(PDPU),A
+            
+              ;;   	    	"0": WAKE UP DISABLE  "1": WAKE UP ENABLE 
+0061:		LD	A,#0FH
+0062:		LD	EXIO(PAWK),A	;;PA2	IS	LED	,	DON'T	WAKEUP
+0063:		LD	EXIO(PDWK),A
+0064:		LD	A,#0
+0065:		LD	(R_KEYCNT),A
+0066:		LD	(R_KEYBUFL),A
+0067:		LD	(R_KEYBUFH),A
+            ;;================SCAN VSS============================================ 
+        L_CHECK_VSS:  
+0068:		LDPCH	DELAY_XUS
+0069:		CALL	DELAY_XUS
+          
+006A:		LD	A,(R_CTRLFLAG)
+006B:		AND	A,#D_LEDCTRL
+006C:		LDPCH	L_VSS_CK_PC0
+006D:		JZ	L_VSS_CK_PC0	;;NO	LED
+          
+006E:		INC	(R_KEYBUFL)
+006F:		ADR	(R_KEYBUFH)	;;HAS	LED
+          
+0070:		LDPCH	L_VSS_CK_PD
+0071:		JMP	L_VSS_CK_PD
+        L_VSS_CK_PC0:  
+            ;;---------------------- CHECK PC.0 
+0072:		LD	A,(PC_CTRL)
+0073:		AND	A,#01H
+0074:		LD	(R_TEMP2),A
+          
+0075:		CLR	C
+0076:		RLC	(R_TEMP2)
+0077:		RLC	(R_TEMP2)
+0078:		RLC	(R_TEMP2)
+0079:		LD	A,#08H
+007A:		LD	(R_TEMP1),A
+007B:		LDPCH	F_READKEYLINE
+007C:		CALL	F_READKEYLINE
+        L_VSS_CK_PD:  
+            ;;---------------------- CHECK PD 
+007D:		LD	A,#01H
+007E:		LD	(R_TEMP1),A
+007F:		LD	A,(DATA_PD)
+0080:		LD	(R_TEMP2),A
+0081:		LDPCH	F_READKEYLINE
+0082:		CALL	F_READKEYLINE
+          
+            ;;****PB****************** 
+0083:		LD	A,(R_CTRLFLAG)
+0084:		AND	A,#D_XTALCTRL
+0085:		LDPCH	L_VSS_CK_PB0_3
+0086:		JZ	L_VSS_CK_PB0_3
+            ;;=1 **************PB2..3 
+        L_VSS_CK_PB2_3:  
+            ;;****** 
+0087:		CLR	C
+0088:		LD	A,#2
+0089:		ADC	A,(R_KEYBUFL)
+008A:		LD	(R_KEYBUFL),A
+008B:		ADR	(R_KEYBUFH)
+            ;;**PB2******** 
+008C:		LD	A,#04H
+008D:		LD	(R_TEMP1),A
+008E:		LD	A,(DATA_PB)
+008F:		AND	A,#0CH
+0090:		LD	(R_TEMP2),A
+0091:		LDPCH	F_READKEYLINE
+0092:		CALL	F_READKEYLINE
+          
+0093:		LDPCH	L_VSS_CK_PA
+0094:		JMP	L_VSS_CK_PA
+            ;;=0 **************PB0..3 
+        L_VSS_CK_PB0_3:  
+            ;;---------------------- CHECK PB 
+0095:		LD	A,#01H
+0096:		LD	(R_TEMP1),A
+0097:		LD	A,(DATA_PB)
+0098:		LD	(R_TEMP2),A
+0099:		LDPCH	F_READKEYLINE
+009A:		CALL	F_READKEYLINE
+        L_VSS_CK_PA:  
+            ;;---------------------- CHECK PA 
+009B:		LD	A,#01H
+009C:		LD	(R_TEMP1),A
+009D:		LD	A,(DATA_PA)
+009E:		LD	(R_TEMP2),A
+009F:		LDPCH	F_READKEYLINE
+00A0:		CALL	F_READKEYLINE
+          
+00A1:		LD	A,(R_KEYCNT)	;;**************************
+00A2:		LDPCH	CHECK_PORT_OVER
+00A3:		JNZ	CHECK_PORT_OVER
+          
+            ;;		LD	A,(R_KEYCNT) 
+            ;;		LDPCH	CHECK_PC0 
+            ;;		JZ	CHECK_PC0 
+            ;;		LDPCH	DELAY_XUS 
+            ;;		CALL	DELAY_XUS 
+            ;;		LDPCH	DELAY_XUS 
+            ;;		CALL	DELAY_XUS 
+            ;;		LDPCH	DELAY_XUS 
+            ;;		CALL	DELAY_XUS 
+          
+            ;;=================SCAN PC0==================================== 
+        CHECK_PC0:  
+00A4:		LD	A,(R_CTRLFLAG)
+00A5:		AND	A,#D_LEDCTRL
+00A6:		LDPCH	L_CHECK_PC0
+00A7:		JZ	L_CHECK_PC0	;;NO	LED
+          
+00A8:		CLR	C
+00A9:		LD	A,#12
+00AA:		ADC	A,(R_KEYBUFL)
+00AB:		LD	(R_KEYBUFL),A
+00AC:		ADR	(R_KEYBUFH)
+00AD:		LDPCH	CHECK_PD
+00AE:		JMP	CHECK_PD	;;HAS	LED
+            ;;============================================================ 
+        L_CHECK_PC0:  
+00AF:		LD	A,#2
+00B0:		LD	(PC_CTRL),A	;;SETTING	PC0	OUTPUT	LOW
+          
+00B1:		LDPCH	DELAY_XUS
+00B2:		CALL	DELAY_XUS
+          
+            ;;---------------------- CHECK PD 
+00B3:		LD	A,#01H
+00B4:		LD	(R_TEMP1),A
+00B5:		LD	A,(DATA_PD)
+00B6:		LD	(R_TEMP2),A
+00B7:		LDPCH	F_READKEYLINE
+00B8:		CALL	F_READKEYLINE
+          
+            ;;****PB****************** 
+00B9:		LD	A,(R_CTRLFLAG)
+00BA:		AND	A,#D_XTALCTRL
+00BB:		LDPCH	L_PC0_CK_PB0_3
+00BC:		JZ	L_PC0_CK_PB0_3
+            ;;=1 **************PB2..3 
+        L_PC0_CK_PB2_3:  
+            ;;****** 
+00BD:		CLR	C
+00BE:		LD	A,#2
+00BF:		ADC	A,(R_KEYBUFL)
+00C0:		LD	(R_KEYBUFL),A
+00C1:		ADR	(R_KEYBUFH)
+            ;;**PB2******** 
+00C2:		LD	A,#04H
+00C3:		LD	(R_TEMP1),A
+00C4:		LD	A,(DATA_PB)
+00C5:		AND	A,#0CH
+00C6:		LD	(R_TEMP2),A
+00C7:		LDPCH	F_READKEYLINE
+00C8:		CALL	F_READKEYLINE
+          
+00C9:		LDPCH	L_PC0_CK_PA
+00CA:		JMP	L_PC0_CK_PA
+            ;;=0 **************PB0..3 
+        L_PC0_CK_PB0_3:  
+            ;;---------------------- CHECK PB 
+00CB:		LD	A,#01H
+00CC:		LD	(R_TEMP1),A
+00CD:		LD	A,(DATA_PB)
+00CE:		LD	(R_TEMP2),A
+00CF:		LDPCH	F_READKEYLINE
+00D0:		CALL	F_READKEYLINE
+        L_PC0_CK_PA:  
+            ;;---------------------- CHECK PA 
+00D1:		LD	A,#01H
+00D2:		LD	(R_TEMP1),A
+00D3:		LD	A,(DATA_PA)
+00D4:		LD	(R_TEMP2),A
+00D5:		LDPCH	F_READKEYLINE
+00D6:		CALL	F_READKEYLINE
+          
+00D7:		LD	A,#0DH
+00D8:		LD	(PC_CTRL),A	;;SETTING	PC0	INTPUT	HIGH
+            ;;===============SCAN PD0-3============================================= 
+        CHECK_PD:  
+          
+00D9:		LD	A,#1
+00DA:		LD	(IOC_PD),A	;;	SETTING	INNTAL	PD	OUTPUT	LOW
+00DB:		LD	A,#0
+00DC:		LD	(DATA_PD),A
+00DD:		LD	A,#4
+00DE:		LD	(R_KEYCOUNT),A
+          
+00DF:		LD	A,#01H
+00E0:		LD	(R_TEMP1),A
+00E1:		LD	(R_TEMP3),A
+            ;;============================================================ 
+        CHECK_PD_LOOP:  
+00E2:		CLR	C
+00E3:		RLC	(R_TEMP3)
+00E4:		LD	A,(R_TEMP3)
+00E5:		LD	(R_TEMP1),A
+          
+00E6:		LDPCH	DELAY_XUS
+00E7:		CALL	DELAY_XUS
+            ;;---------------------- CHECK PD 
+00E8:		LD	A,(DATA_PD)
+00E9:		LD	(R_TEMP2),A
+00EA:		LDPCH	F_READKEYLINE
+00EB:		CALL	F_READKEYLINE
+          
+        CHECK_PD3:  
+            ;;****PB****************** 
+00EC:		LD	A,(R_CTRLFLAG)
+00ED:		AND	A,#D_XTALCTRL
+00EE:		LDPCH	L_PD_CK_PB0_3
+00EF:		JZ	L_PD_CK_PB0_3
+          
+            ;;=1 **************PB2..3 
+        L_PD_CK_PB2_3:  
+            ;;****** 
+00F0:		CLR	C
+00F1:		LD	A,#2
+00F2:		ADC	A,(R_KEYBUFL)
+00F3:		LD	(R_KEYBUFL),A
+00F4:		ADR	(R_KEYBUFH)
+            ;;**PB2******** 
+00F5:		LD	A,#04H
+00F6:		LD	(R_TEMP1),A
+00F7:		LD	A,(DATA_PB)
+00F8:		AND	A,#0CH
+00F9:		LD	(R_TEMP2),A
+00FA:		LDPCH	F_READKEYLINE
+00FB:		CALL	F_READKEYLINE
+          
+00FC:		LDPCH	L_PD_CK_PA
+00FD:		JMP	L_PD_CK_PA
+            ;;=0 **************PB0..3 
+        L_PD_CK_PB0_3:  
+            ;;---------------------- CHECK PB 
+00FE:		LD	A,#01H
+00FF:		LD	(R_TEMP1),A
+          
+0100:		LD	A,(DATA_PB)
+0101:		LD	(R_TEMP2),A
+0102:		LDPCH	F_READKEYLINE
+0103:		CALL	F_READKEYLINE
+        L_PD_CK_PA:  
+            ;;---------------------- CHECK PA 
+0104:		LD	A,#01H
+0105:		LD	(R_TEMP1),A
+0106:		LD	A,(DATA_PA)
+0107:		LD	(R_TEMP2),A
+0108:		LDPCH	F_READKEYLINE
+0109:		CALL	F_READKEYLINE
+          
+010A:		CLR	C
+010B:		RLC	(IOC_PD)
+010C:		LD	A,#0
+010D:		LD	(DATA_PD),A
+010E:		DEC	(R_KEYCOUNT)	;;****R_TEMP3******
+          
+010F:		LD	A,(R_KEYCOUNT)
+0110:		LDPCH	CHECK_PB
+0111:		JZ	CHECK_PB	;;********
+0112:		CMP	A,#01H
+0113:		LDPCH	CHECK_PD_LOOP
+0114:		JNZ	CHECK_PD_LOOP
+          
+0115:		LDPCH	DELAY_XUS
+0116:		CALL	DELAY_XUS
+0117:		LDPCH	CHECK_PD3
+0118:		JMP	CHECK_PD3	;;PD3	ONLY	CHECK	PB,PA**
+          
+            ;;===============SCAN PB0-3============================================= 
+        CHECK_PB:  
+            ;;****PB****************** 
+0119:		LD	A,(R_CTRLFLAG)
+011A:		AND	A,#D_XTALCTRL
+011B:		LDPCH	L_PB_CK_PB0_3
+011C:		JZ	L_PB_CK_PB0_3
+            ;;=1 **************PB2..3 
+        L_PB_CK_PB2_3:  
+            ;;********** 
+011D:		CLR	C
+011E:		LD	A,#13	;;7+6	PB0	7******PB1	6****
+011F:		ADC	A,(R_KEYBUFL)
+0120:		LD	(R_KEYBUFL),A
+0121:		ADR	(R_KEYBUFH)
+          
+0122:		LD	A,#BIT2	;;PB2	********
+0123:		LD	(IOC_PB),A	;;	SETTING	INNTAL	PD	OUTPUT	LOW
+0124:		LD	A,#0
+0125:		LD	(DATA_PB),A
+0126:		LD	A,#2
+0127:		LD	(R_KEYCOUNT),A	;;********
+          
+0128:		LDPCH	DELAY_XUS
+0129:		CALL	DELAY_XUS
+          
+012A:		LD	A,#04H	;;BIT2
+012B:		LD	(R_TEMP1),A
+012C:		LD	(R_TEMP3),A
+          
+012D:		LDPCH	CHECK_PB_LOOP
+012E:		JMP	CHECK_PB_LOOP
+          
+            ;;=0 **************PB0..3 
+        L_PB_CK_PB0_3:  
+012F:		LD	A,#1
+0130:		LD	(IOC_PB),A	;;	SETTING	INNTAL	PD	OUTPUT	LOW
+0131:		LD	A,#0
+0132:		LD	(DATA_PB),A
+0133:		LD	A,#4
+0134:		LD	(R_KEYCOUNT),A	;;********
+          
+0135:		LD	A,#01H
+0136:		LD	(R_TEMP1),A
+0137:		LD	(R_TEMP3),A
+            ;;============================================================ 
+        CHECK_PB_LOOP:  
+0138:		CLR	C
+0139:		RLC	(R_TEMP3)
+013A:		LD	A,(R_TEMP3)
+013B:		LD	(R_TEMP1),A
+          
+013C:		LDPCH	DELAY_XUS
+013D:		CALL	DELAY_XUS
+          
+            ;;---------------------- CHECK PB 
+013E:		LD	A,(DATA_PB)
+013F:		LD	(R_TEMP2),A
+0140:		LDPCH	F_READKEYLINE
+0141:		CALL	F_READKEYLINE
+        CHECK_PB3:  
+            ;;---------------------- CHECK PA 
+0142:		LD	A,#01H
+0143:		LD	(R_TEMP1),A
+0144:		LD	A,(DATA_PA)
+0145:		LD	(R_TEMP2),A
+0146:		LDPCH	F_READKEYLINE
+0147:		CALL	F_READKEYLINE
+          
+0148:		CLR	C
+0149:		RLC	(IOC_PB)
+014A:		LD	A,#0
+014B:		LD	(DATA_PB),A
+014C:		DEC	(R_KEYCOUNT)
+          
+014D:		LD	A,(R_KEYCOUNT)
+014E:		LDPCH	CHECK_PA
+014F:		JZ	CHECK_PA	;;****PA**
+0150:		CMP	A,#01H
+0151:		LDPCH	CHECK_PB_LOOP
+0152:		JNZ	CHECK_PB_LOOP
+          
+0153:		LDPCH	DELAY_XUS
+0154:		CALL	DELAY_XUS
+0155:		LDPCH	CHECK_PB3
+0156:		JMP	CHECK_PB3	;;PB3	ONLY	CHECK	PA**
+          
+            ;;===============SCAN PA0-3============================================= 
+        CHECK_PA:  
+0157:		LD	A,#1
+0158:		LD	(IOC_PA),A	;;SETTING	INNTAL	PA	OUTPUT	LOW
+0159:		LD	A,#0
+015A:		LD	(DATA_PA),A
+015B:		LD	A,#4
+015C:		LD	(R_KEYCOUNT),A
+          
+015D:		LD	A,#01H
+015E:		LD	(R_TEMP1),A
+015F:		LD	(R_TEMP3),A
+            ;;============================================================ 
+        CHECK_PA_LOOP:  
+0160:		CLR	C
+0161:		RLC	(R_TEMP3)
+0162:		LD	A,(R_TEMP3)
+0163:		LD	(R_TEMP1),A
+          
+0164:		LDPCH	DELAY_XUS
+0165:		CALL	DELAY_XUS
+          
+            ;;---------------------- CHECK PA 
+0166:		LD	A,(DATA_PA)
+0167:		LD	(R_TEMP2),A
+0168:		LDPCH	F_READKEYLINE
+0169:		CALL	F_READKEYLINE
+          
+016A:		CLR	C
+016B:		RLC	(IOC_PA)
+016C:		LD	A,#0
+016D:		LD	(DATA_PA),A
+016E:		DEC	(R_KEYCOUNT)
+          
+016F:		LD	A,(R_KEYCOUNT)
+0170:		LDPCH	CHECK_PORT_OVER
+0171:		JZ	CHECK_PORT_OVER	;;****PORT****
+0172:		CMP	A,#01H
+0173:		LDPCH	CHECK_PA_LOOP
+0174:		JNZ	CHECK_PA_LOOP
+          
+            ;;============================================================ 
+        CHECK_PORT_OVER:  
+0175:		LD	A,(R_KEYCNT)
+0176:		CMP	A,#1
+0177:		LDPCH	CHECK_PORT_OVER_SINGLEKEY
+0178:		JZ	CHECK_PORT_OVER_SINGLEKEY
+        CHECK_PORT_OVER_NOORMULTIKEY:			    ;;************************** 
+0179:		LD	A,#0
+017A:		LD	(R_KEYVALL_C),A
+017B:		LD	(R_KEYVALH_C),A
+            ;;LD	(R_KEYCNT),A 
+        CHECK_PORT_OVER_SINGLEKEY:		    ;;******************************** 
+017C:		LD	A,(R_KEYVALL)
+017D:		CMP	A,(R_KEYVALL_C)
+017E:		LDPCH	CHECK_PORT_OVER_UNSAMEKEY
+017F:		JNZ	CHECK_PORT_OVER_UNSAMEKEY
+0180:		LD	A,(R_KEYVALH)
+0181:		CMP	A,(R_KEYVALH_C)
+0182:		LDPCH	CHECK_PORT_OVER_SAMEKEY
+0183:		JZ	CHECK_PORT_OVER_SAMEKEY
+        CHECK_PORT_OVER_UNSAMEKEY:			    ;;**********R_KEYDEBUNCE=0 
+0184:		LD	A,#0
+0185:		LD	(R_KEYDEBUNCEL),A
+0186:		LD	(R_KEYDEBUNCEH),A
+0187:		LD	A,(R_KEYVALL_C)
+0188:		LD	(R_KEYVALL),A
+0189:		LD	A,(R_KEYVALH_C)
+018A:		LD	(R_KEYVALH),A
+        CHECK_PORT_OVER_SAMEKEY:  
+018B:		CLR	C
+018C:		LD	A,(R_KEYDEBUNCEH)
+018D:		CMP	A,#D_KEYDEBUNCEH
+018E:		LDPCH	_DEBUNCE_INC
+018F:		JC	_DEBUNCE_INC
+0190:		LD	A,(R_KEYDEBUNCEL)
+0191:		CMP	A,#D_KEYDEBUNCEL
+0192:		LDPCH	KEYCONTROL
+0193:		JNC	KEYCONTROL
+        _DEBUNCE_INC:  
+0194:		CLR	C
+0195:		LD	A,(R_KEYDEBUNCEL)
+0196:		ADC	A,#1
+0197:		LD	(R_KEYDEBUNCEL),A
+0198:		LD	A,(R_KEYDEBUNCEH)
+0199:		ADC	A,#0
+019A:		LD	(R_KEYDEBUNCEH),A
+019B:		LDPCH	SCAN_KEY_EXIT
+019C:		JMP	SCAN_KEY_EXIT
+        KEYCONTROL:  
+019D:		LD	A,(R_KEYCNT)
+019E:		CMP	A,#01H
+019F:		LDPCH	HAVEKEYDN
+01A0:		JZ	HAVEKEYDN
+        NOTKEYDN:								    ;;NO KEY DOWN 
+01A1:		LD	A,(R_FLAG)
+01A2:		OR	A,#F_KEYNOP
+01A3:		AND	A,#09H	;;F_KEYPRO+F_SERIALKEY\
+01A4:		LD	(R_FLAG),A
+          
+01A5:		LDPCH	SCAN_KEY_EXIT
+01A6:		JMP	SCAN_KEY_EXIT
+        HAVEKEYDN:	    ;;KEY DOWN 
+01A7:		LD	A,(R_FLAG)
+01A8:		OR	A,#F_KEYPRO
+01A9:		AND	A,#0EH	;;F_KEYNOP\
+01AA:		LD	(R_FLAG),A
+        SCAN_KEY_EXIT:  
+01AB:		LDPCH	KEYSCANOVER
+01AC:		JMP	KEYSCANOVER
+            ;;=============================================================== 
+        F_READKEYLINE:  
+        L_READKEYLINE_LP:  
+01AD:		INC	(R_KEYBUFL)
+01AE:		ADR	(R_KEYBUFH)
+          
+01AF:		LD	A,(R_TEMP2)
+01B0:		AND	A,(R_TEMP1)
+01B1:		LDPCH	KEY_DOWN_PRO
+01B2:		JZ	KEY_DOWN_PRO
+        READ_KEY_LINE_1:  
+01B3:		CLR	C
+01B4:		RLC	(R_TEMP1)
+01B5:		LDPCH	L_READKEYLINE_LP
+01B6:		JNC	L_READKEYLINE_LP
+01B7:		LDPCH	READ_KEY_LINE_NEXT
+01B8:		JMP	READ_KEY_LINE_NEXT
+        KEY_DOWN_PRO:  
+01B9:		INC	(R_KEYCNT)
+01BA:		LD	A,(R_KEYBUFL)
+01BB:		LD	(R_KEYVALL_C),A
+01BC:		LD	A,(R_KEYBUFH)
+01BD:		LD	(R_KEYVALH_C),A
+01BE:		LDPCH	READ_KEY_LINE_1
+01BF:		JMP	READ_KEY_LINE_1
+        READ_KEY_LINE_NEXT:  
+01C0:		RETS
+            ;;******************************************************************* 
+            ;;	      ******** 
+            ;;    HEAD_H:9MS+HEAD_L:4.5MS+C0-8+C0-8\+D0-8+D0-8\ 
+            ;;******************************************************************* 
+        SENDCONTROL:  
+01C1:		LD	A,(R_FLAG)
+01C2:		AND	A,#F_KEYPRO
+01C3:		LDPCH	SENDCODE
+01C4:		JNZ	SENDCODE	;;ENVIA	CODIGO
+01C5:		LDPCH	SENDCONTROLBACK	;;DE	VA	A	DORMIR
+01C6:		JMP	SENDCONTROLBACK
+        SENDCODE:  
+01C7:		LD	A,(R_FLAG)
+01C8:		AND	A,#0DH	;;F_KEYPRO\
+01C9:		LD	(R_FLAG),A
+            ;;OBTENEMOS ADRESS DE COMUN 
+01CA:		LD	A,#T_CUSTOMERTABLE.N2
+01CB:		LD	(DMA2),A
+01CC:		LD	A,#T_CUSTOMERTABLE.N1
+01CD:		LD	(DMA1),A
+01CE:		LD	A,#T_CUSTOMERTABLE.N0
+01CF:		LD	(DMA0),A
+          
+          
+            ;; OBTENEMOS DATOS DE COMUN 0 !!! 
+01D0:		LD	A,(DMDM)
+01D1:		LD	(R_IRDATA0H),A
+01D2:		LD	A,(DMDL)
+01D3:		LD	(R_IRDATA0L),A
+          
+01D4:		LD	A,#T_KEYVALUETABLE.N2
+01D5:		LD	(DMA2),A
+01D6:		LD	A,#T_KEYVALUETABLE.N1
+01D7:		LD	(DMA1),A
+01D8:		LD	A,#T_KEYVALUETABLE.N0	;;	OBTENEMOS	DONDE	EMPIEZA	LA	TABLA	DE	KEYS	PROM	ADDRESS
+01D9:		LD	(DMA0),A
+          
+01DA:		CLR	C
+01DB:		LD	A,(R_KEYVALL)
+01DC:		SBC	A,#1
+01DD:		LD	(R_TEMP1),A
+01DE:		LD	A,(R_KEYVALH)
+01DF:		SBC	A,#0
+01E0:		LD	(R_TEMP2),A
+          
+01E1:		CLR	C
+01E2:		LD	A,(DMA0)
+01E3:		ADC	A,(R_TEMP1)
+01E4:		LD	(DMA0),A
+01E5:		LD	A,(DMA1)
+01E6:		ADC	A,(R_TEMP2)
+01E7:		LD	(DMA1),A
+01E8:		LD	A,(DMA2)
+01E9:		ADC	A,#0
+01EA:		LD	(DMA2),A
+          
+            ;;GET KEYVALUE			; SI ES VALIDA LA TECLA ENTONCES 
+01EB:		LD	A,(DMDM)
+01EC:		CMP	A,#0FH
+01ED:		LDPCH	L_VALID_KEY
+01EE:		JNZ	L_VALID_KEY
+01EF:		LD	A,(DMDL)
+01F0:		CMP	A,#0FH
+01F1:		LDPCH	L_VALID_KEY
+01F2:		JNZ	L_VALID_KEY
+          
+01F3:		LD	A,(R_FLAG)
+01F4:		AND	A,#0DH	;;F_KEYPRO\
+01F5:		LD	(R_FLAG),A
+          
+01F6:		LDPCH	SENDCONTROLBACK
+01F7:		JMP	SENDCONTROLBACK
+          
+        L_VALID_KEY:						    ;; OBTENEMOS LA TECLA 
+01F8:		LD	A,(DMDM)
+01F9:		LD	(R_KEYNUMH),A
+01FA:		LD	A,(DMDL)
+01FB:		LD	(R_KEYNUML),A
+          
+        SENDHEADCODE:  
+01FC:		LD	A,(R_FLAG)
+01FD:		AND	A,#F_SERIALKEY	;;	**ES	CODIGO	DE	REPETICION	?
+01FE:		LDPCH	SENDREPEATCODE
+01FF:		JNZ	SENDREPEATCODE	;;	SI	ES	CODIGO	DE	REPETICION	ENTONCES	...	REPETIMOS..
+0200:		LD	A,(R_FLAG)
+0201:		OR	A,#F_SERIALKEY	;;	SI	NO	-	ACTIVAMOS	CODIGO	DE	REPETICION
+0202:		LD	(R_FLAG),A
+0203:		LDPCH	STARTSENDCODE	;;	VAMO	A	ENVIAR	EL	CODIGO
+0204:		JMP	STARTSENDCODE
+          
+            ;;************************************************************************************************************* 
+            ;;************************************************************************************************************* 
+            ;; CODIGO DE REPETICION 
+            ;;************************************************************************************************************* 
+            ;;************************************************************************************************************* 
+          
+        SENDREPEATCODE:  
+        %CLRWDT					    ;; VAMOS AL MACRO LIMPIAR EL WDT 
+0205:		LD	A,#05H
+0206:		LD	(WDT),A	;;	CLEAR	WATCH	DOG	TIMER
+0207:		CLR	C
+          
+        %PULSE_9MS  
+            
+0208:		LDPCH	DELAYHEADH
+0209:		CALL	DELAYHEADH
+            
+020A:		LDPCH	DELAYHEADH
+020B:		CALL	DELAYHEADH
+          
+020C:		LDPCH	DELAYBIT1L
+020D:		CALL	DELAYBIT1L
+          
+020E:		LDPCH	DELAYBIT0L
+020F:		CALL	DELAYBIT0L
+          
+          
+          
+0210:		LDPCH	DELAYBITH
+0211:		CALL	DELAYBITH
+          
+          
+0212:		LDPCH	DELAYBIT1L
+0213:		CALL	DELAYBIT1L
+          
+        %FRAME_TIME     ;; 45 MS 
+            
+0214:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+0215:		CALL	MANAGE_LAST_PULSE
+            
+0216:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+0217:		CALL	MANAGE_LAST_PULSE
+            
+0218:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+0219:		CALL	MANAGE_LAST_PULSE
+            
+            
+        %FRAME_TIME     ;;45 MS 
+            
+021A:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+021B:		CALL	MANAGE_LAST_PULSE
+            
+021C:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+021D:		CALL	MANAGE_LAST_PULSE
+            
+021E:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+021F:		CALL	MANAGE_LAST_PULSE
+            
+            
+          
+            ;;==========  90MS 
+          
+          
+0220:		LDPCH	DELAYBIT1L
+0221:		CALL	DELAYBIT1L
+          
+0222:		LDPCH	DELAYBIT1L
+0223:		CALL	DELAYBIT1L
+          
+            ;;AJUSTANDO 40MS 
+          
+0224:		LDPCH	SENDCONTROLBACK
+0225:		JMP	SENDCONTROLBACK
+          
+        MACRO %PULSE_9MS  
+          
+        LDPCH	DELAYHEADH  
+        CALL	DELAYHEADH  
+          
+        LDPCH	DELAYHEADH  
+        CALL	DELAYHEADH  
+            ENDM  
+            ;;************************************************************************************************************* 
+            ;;************************************************************************************************************* 
+            ;;CODIGO START 
+            ;;************************************************************************************************************* 
+            ;;************************************************************************************************************* 
+          
+          
+        STARTSENDCODE:  
+0226:		CLR	#3,(SCALER1)
+0227:		SET	#3,(SCALER1)
+          
+        %PULSE_9MS     ;; PULSO INICIAL 
+            
+0228:		LDPCH	DELAYHEADH
+0229:		CALL	DELAYHEADH
+            
+022A:		LDPCH	DELAYHEADH
+022B:		CALL	DELAYHEADH
+          
+022C:		LDPCH	DELAYHEADL	;;	4.5	ABAJO
+022D:		CALL	DELAYHEADL
+          
+          
+022E:		LD	A,#8H	;;	15	DECIMAL	=	FHEX	(	EL	COMUN	ES	DE	16	PERO	EL	LIMITE	ES	15	,	ENOTNCES	ENVIO	15	Y	AL	FINAL	ENVIO	1	)
+022F:		LD	(R_SHIFTBUFL),A
+          
+0230:		LD	A,#1
+0231:		LD	(MANAGE_REPEAT_COMMUN)	,	A	;;	SE	ENVIARA	2	VECES	EL	COMMUN
+          
+          
+0232:		LD	A,	(R_IRDATA0H)	;;	GUARDAMOS	EL	COMUN	PORQE	SE	ENVIARA	2	VECES
+0233:		LD	(R_IRDATA1H)	,	A
+          
+          
+0234:		LD	A,	(R_IRDATA0L)
+0235:		LD	(R_IRDATA1L)	,	A
+          
+0236:		LDPCH	SENDCODEBITLOOP
+0237:		JMP	SENDCODEBITLOOP	;;	VAMOS	A	ENVIAR	EL	COMUN
+          
+          
+        LOAD_COMMUN_SECOND_TIME:  
+          
+          
+          
+0238:		LD	A,#8H	;;	RESTABLECEMOS	EL	CONTADOR	DE	BITS
+0239:		LD	(R_SHIFTBUFL),A
+          
+023A:		LD	A,	(R_IRDATA1H)	;;	GUARDAMOS	EL	COMUN	PORQE	SE	ENVIARA	2	VECES	PERO	AHORA	CON	XOR
+023B:		XOR	A	,	#1111B
+023C:		LD	(R_IRDATA0H)	,	A
+          
+          
+023D:		LD	A,	(R_IRDATA1L)
+023E:		XOR	A	,	#1111B
+023F:		LD	(R_IRDATA0L)	,	A
+          
+          
+        SENDCODEBITLOOP:  
+0240:		RRC	(R_IRDATA0H)
+0241:		RRC	(R_IRDATA0L)	;;	TENEMOS	EL	COMUN
+          
+          
+          
+0242:		LDPCH	SENDCODEBIT0
+0243:		JNC	SENDCODEBIT0	;;	SALTA	SI	ES	CERO	CARRY
+        SENDCODEBIT1:  
+0244:		LDPCH	DELAYBITH
+0245:		CALL	DELAYBITH
+0246:		LDPCH	DELAYBIT1L
+0247:		CALL	DELAYBIT1L
+0248:		LDPCH	SENDCODEBITJUMP
+0249:		JMP	SENDCODEBITJUMP
+        SENDCODEBIT0:  
+024A:		LDPCH	DELAYBITH
+024B:		CALL	DELAYBITH
+024C:		LDPCH	DELAYBIT0L
+024D:		CALL	DELAYBIT0L
+024E:		NOP
+024F:		NOP
+        SENDCODEBITJUMP:  
+0250:		CLR	C
+0251:		LD	A,(R_SHIFTBUFL)
+0252:		SBC	A,#1
+0253:		LD	(R_SHIFTBUFL),A
+0254:		LD	A,(R_SHIFTBUFL)
+          
+0255:		LDPCH	SENDCODEBITLOOP
+0256:		JNZ	SENDCODEBITLOOP
+          
+0257:		LDPCH	LOAD_CODE_SECOND_TIME
+0258:		JNZ	LOAD_CODE_SECOND_TIME	;;	SI	YA	TERMINO	DE	ENVIAR	LOS	DATOS	ENTONCES	...	VA	A	CARGAR	POR	SEGUNDA	VES
+          
+          
+          
+          
+          
+        LOAD_CODE_SECOND_TIME:  
+          
+          
+0259:		LD	A,(MANAGE_REPEAT_COMMUN)
+025A:		SBC	A,#1	;;;
+025B:		LD	(MANAGE_REPEAT_COMMUN),A
+025C:		LD	A,(MANAGE_REPEAT_COMMUN)
+025D:		LDPCH	LOAD_COMMUN_SECOND_TIME
+025E:		JZ	LOAD_COMMUN_SECOND_TIME	;;
+          
+            ;;********************************************************************************************************* 
+            ;;********************************************************************************************************* 
+            ;;********************************************************************************************************* 
+            ;;********************************************************************************************************* 
+          
+            ;;SEND DATA; 
+025F:		LD	A,#08H
+0260:		LD	(R_SHIFTBUFH),A
+          
+          
+0261:		LD	A,#1
+0262:		LD	(MANAGE_REPEAT_COMMUN)	,	A	;;	SE	ENVIARA	2	EL	DATO	PERO	SE	UTILIZA	EL	REGISTRO	DE	COMMUN
+          
+          
+0263:		LD	A,	(R_KEYNUMH)	;;	GUARDAMOS	EL	DATO	PARA	POSTERIORMENTE	NEGARLO
+0264:		LD	(R_IRDATA1H)	,	A
+          
+          
+0265:		LD	A,	(R_KEYNUML)
+0266:		LD	(R_IRDATA1L)	,	A
+          
+0267:		LDPCH	SENDDATABITLOOP
+0268:		JMP	SENDDATABITLOOP
+          
+          
+        LOAD_XOR_DATA:  
+          
+            ;; RESCATAMOS LOS DATOS GUARDADOS 
+          
+0269:		LD	A,#9H	;;	ENVIAMOS	8	BITS
+026A:		LD	(R_SHIFTBUFH),A
+          
+            ;;SACAMOS CPL  A LOS DATOS 
+026B:		LD	A,(R_IRDATA1H)
+026C:		XOR	A	,	#1111B
+026D:		LD	(R_KEYNUMH)	,A
+          
+          
+026E:		LD	A	,	(R_IRDATA1L)
+026F:		XOR	A	,	#1111B
+0270:		LD	(R_KEYNUML)	,A
+          
+          
+        SENDDATABITLOOP:  
+          
+0271:		RLC	(R_KEYNUML)
+0272:		RLC	(R_KEYNUMH)	;;	EMPIEZA	LA	ROTACION	DE	LOS	BITS	DE	LOS	DATOS
+          
+          
+          
+          
+          
+0273:		LDPCH	SENDDATABIT0
+0274:		JNC	SENDDATABIT0
+        SENDDATABIT1:  
+0275:		LDPCH	DELAYBITH
+0276:		CALL	DELAYBITH
+0277:		LDPCH	DELAYBIT1L
+0278:		CALL	DELAYBIT1L
+0279:		LDPCH	SENDDATABITJUMP
+027A:		JMP	SENDDATABITJUMP
+        SENDDATABIT0:  
+027B:		LDPCH	DELAYBITH
+027C:		CALL	DELAYBITH
+027D:		LDPCH	DELAYBIT0L
+027E:		CALL	DELAYBIT0L
+027F:		NOP
+0280:		NOP
+        SENDDATABITJUMP:  
+0281:		CLR	C
+0282:		LD	A,(R_SHIFTBUFH)
+0283:		SBC	A,#1	;;	DECREMENTAMOS	UNO	A	MANEJADOR	DEL	ENVIO	DE	BITS
+0284:		LD	(R_SHIFTBUFH),A
+0285:		LD	A,(R_SHIFTBUFH)
+          
+0286:		LDPCH	SENDDATABITLOOP
+0287:		JNZ	SENDDATABITLOOP
+          
+0288:		LD	A,(MANAGE_REPEAT_COMMUN)
+0289:		LDPCH	LOAD_DATA_SECOND_TIME_XOR
+028A:		JNZ	LOAD_DATA_SECOND_TIME_XOR	;;	SI	YA	TERMINO	DE	ENVIAR	LOS	DATOS	ENTONCES	...	VA	A	CARGAR	POR	SEGUNDA	VES
+          
+028B:		LDPCH	LAST_PULSE_AND_SLEEP
+028C:		JMP	LAST_PULSE_AND_SLEEP
+          
+          
+        LOAD_DATA_SECOND_TIME_XOR:  
+          
+          
+028D:		LD	A,(MANAGE_REPEAT_COMMUN)
+028E:		SBC	A,#1	;;;
+028F:		LD	(MANAGE_REPEAT_COMMUN),A
+0290:		LD	A,(MANAGE_REPEAT_COMMUN)
+0291:		LDPCH	LOAD_XOR_DATA
+0292:		JZ	LOAD_XOR_DATA	;;
+          
+        LAST_PULSE_AND_SLEEP:  
+          
+0293:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+0294:		CALL	MANAGE_LAST_PULSE
+          
+0295:		LDPCH	MANAGE_LAST_PULSE	;;	SI	NO	ENTONCES	ENVIA	MAS	BITS
+0296:		CALL	MANAGE_LAST_PULSE
+          
+0297:		LDPCH	DELAYHEADL
+0298:		CALL	DELAYHEADL
+          
+0299:		LDPCH	DELAYBIT1L
+029A:		CALL	DELAYBIT1L
+          
+029B:		LDPCH	DELAYBIT1L
+029C:		CALL	DELAYBIT1L
+          
+            ;;AJUSTANDO PARA ENVIAR 97 
+          
+029D:		LDPCH	SENDCONTROLBACK
+029E:		JMP	SENDCONTROLBACK	;;	SI	ES	ASI	ENTONCES	SE	VA	A	DOMIR	O	CHECAR	TECLADO
+          
+        MACRO %FRAME_TIME  
+          
+        LDPCH	MANAGE_LAST_PULSE         ;; SI NO ENTONCES ENVIA MAS BITS 
+        CALL	MANAGE_LAST_PULSE  
+          
+        LDPCH	MANAGE_LAST_PULSE         ;; SI NO ENTONCES ENVIA MAS BITS 
+        CALL	MANAGE_LAST_PULSE  
+          
+        LDPCH	MANAGE_LAST_PULSE         ;; SI NO ENTONCES ENVIA MAS BITS 
+        CALL	MANAGE_LAST_PULSE  
+          
+          
+            ENDM  
+          
+          
+          
+          
+            ;;*********************************************************************************** 
+            ;;		SLEEP CONTROL 
+            ;;*********************************************************************************** 
+        SLEEPCONTROL:  
+029F:		LD	A,(R_KEYCNT)
+02A0:		LDPCH	SLEEPCONTROLEXIT
+02A1:		JNZ	SLEEPCONTROLEXIT
+          
+02A2:		LD	A,(R_FLAG)
+02A3:		AND	A,#F_KEYNOP
+02A4:		LDPCH	SLEEPCONTROLEXIT
+02A5:		JZ	SLEEPCONTROLEXIT
+          
+02A6:		LD	A,#08H
+02A7:		LD	(IR_DIV),A
+          
+        %IO_OPTION_SET  
+              ;;===============OPTION PROCESS START===================================== 
+            
+02A8:		LD	A,(R_CTRLFLAG)
+02A9:		AND	A,#D_LEDCTRL
+02AA:		LDPCH	LED_NOT
+02AB:		JZ	LED_NOT
+          LED_YES:  
+              ;;PC0 AS LED CTRL 
+02AC:		LD	A,#3
+02AD:		LD	(PC_CTRL),A	;;SETTING	PC0	OUTPUT,HIGH
+02AE:		LDPCH	LED_SET_OVER
+02AF:		JMP	LED_SET_OVER
+          LED_NOT:  
+              ;;PC0 AS I/O FOR KEYSCAN 
+02B0:		LD	A,#0DH	;;BIT1	CTRL	IN/OUT
+02B1:		LD	(PC_CTRL),A	;;SETTING	PC0	INPUT,PULL	HIGH
+          LED_SET_OVER:  
+              ;;---------------- 
+02B2:		LD	A,(R_CTRLFLAG)
+02B3:		AND	A,#D_XTALCTRL
+02B4:		LDPCH	XTAL_IN
+02B5:		JZ	XTAL_IN
+          XTAL_OUT:  
+              ;;PB0,PB1 AS X'TAL PIN  (X'TAL OUT) 
+02B6:		LD	A,#0CH	;;PB0.PB1	AS	X'TAL
+02B7:		LD	EXIO(PBPU),A
+02B8:		LD	EXIO(PBWK),A
+02B9:		LDPCH	XTAL_SET_OVER
+02BA:		JMP	XTAL_SET_OVER
+          XTAL_IN:  
+              ;;PB0,PB1 AS I/O   (X'TAL IN) 
+02BB:		LD	A,#0FH	;;PB0.PB1	AS	I/O
+02BC:		LD	EXIO(PBPU),A
+02BD:		LD	EXIO(PBWK),A
+          XTAL_SET_OVER:  
+              ;;===============OPTION PROCESS END======================================= 
+              ;;INITAL OTHER I/O 
+              ;;   	    	'0'=INPUT, '1'=OUTPUT 
+02BE:		LD	A,#0
+02BF:		LD	(IOC_PA),A
+02C0:		LD	(IOC_PB),A
+02C1:		LD	(IOC_PD),A	;;ALL	AS	INPUT
+            
+              ;;   	    	"0": PULL UP DISABLE  "1": PULL UP ENABLE 
+02C2:		LD	A,#0FH
+02C3:		LD	EXIO(PAPU),A
+02C4:		LD	EXIO(PDPU),A
+            
+              ;;   	    	"0": WAKE UP DISABLE  "1": WAKE UP ENABLE 
+02C5:		LD	A,#0FH
+02C6:		LD	EXIO(PAWK),A	;;PA2	IS	LED	,	DON'T	WAKEUP
+02C7:		LD	EXIO(PDWK),A
+          
+        HALTDELAY:  
+02C8:		LD	A,#15
+02C9:		LD	(DMA0),A
+        HALTDELAYA:  
+02CA:		NOP
+02CB:		NOP
+02CC:		NOP
+02CD:		NOP
+02CE:		NOP
+02CF:		NOP
+02D0:		NOP
+02D1:		NOP
+02D2:		NOP
+02D3:		NOP
+02D4:		NOP
+02D5:		NOP
+02D6:		NOP
+02D7:		DEC	(DMA0)
+02D8:		LDPCH	HALTDELAYA
+02D9:		JNZ	HALTDELAYA
+          
+02DA:		HALT
+02DB:		NOP
+02DC:		NOP
+02DD:		NOP
+        SLEEPCONTROLEXIT:  
+02DE:		RETS
+            ;;---------------------------------------------- 
+        DELAY_XUS:  
+02DF:		LD	A,#15
+02E0:		LD	(DMA0),A
+        DELAY_XUSA:  
+02E1:		NOP
+02E2:		NOP
+02E3:		NOP
+02E4:		NOP
+02E5:		NOP
+02E6:		NOP
+02E7:		NOP
+02E8:		DEC	(DMA0)
+02E9:		LDPCH	DELAY_XUSA
+02EA:		JNZ	DELAY_XUSA
+02EB:		RETS
+          
+            ;;********************************************************** CODIGO LIDER 
+        DELAYHEADH:		    ;;4050 
+02EC:		LD	A,#0AH
+02ED:		LD	(R_TEMP1),A
+02EE:		LD	A,#0AH
+02EF:		LD	(R_TEMP2),A
+02F0:		LD	A,#00H
+02F1:		LD	(R_TEMP3),A
+02F2:		LDPCH	L38KH_CW_OUTA
+02F3:		JMP	L38KH_CW_OUTA
+            ;;---------------------------------------------- 
+        DELAYBITH:		    ;;520 
+02F4:		LD	A,#07H
+02F5:		LD	(R_TEMP1),A
+02F6:		LD	A,#01H
+02F7:		LD	(R_TEMP2),A
+02F8:		LD	A,#00H
+02F9:		LD	(R_TEMP3),A
+          
+          
+          
+            ;;---------------------------------------------- 
+        L38KH_CW_OUTA:						    ;;26.25US 
+02FA:		LD	A,#00H
+02FB:		LD	(IR_DIV),A
+          
+            ;;---33NOP 
+02FC:		LD	A,#7
+02FD:		LD	(DMA0),A
+02FE:		NOP
+02FF:		NOP
+0300:		NOP
+        DELAY38KHH:  
+0301:		NOP
+0302:		DEC	(DMA0)
+0303:		LDPCH	DELAY38KHH
+0304:		JNZ	DELAY38KHH
+          
+0305:		LD	A,#08H
+0306:		LD	(IR_DIV),A
+          
+            ;;---49NOP 
+0307:		LD	A,#9
+0308:		LD	(DMA0),A
+0309:		NOP
+030A:		NOP
+        DELAY38KHL:  
+030B:		NOP
+030C:		NOP
+030D:		DEC	(DMA0)
+030E:		LDPCH	DELAY38KHL
+030F:		JNZ	DELAY38KHL
+          
+0310:		CLR	C
+0311:		LD	A,(R_TEMP1)	;;
+0312:		SBC	A,#1
+0313:		LD	(R_TEMP1),A
+0314:		LD	A,(R_TEMP2)
+0315:		SBC	A,#0
+0316:		LD	(R_TEMP2),A
+0317:		LD	A,(R_TEMP3)
+0318:		SBC	A,#0
+0319:		LD	(R_TEMP3),A
+031A:		LD	A,(R_TEMP1)
+031B:		LDPCH	L38KH_CW_OUTL1
+031C:		JNZ	L38KH_CW_OUTL1	;;19
+031D:		LD	A,(R_TEMP2)
+031E:		LDPCH	L38KH_CW_OUTL2
+031F:		JNZ	L38KH_CW_OUTL2	;;19
+0320:		LD	A,(R_TEMP3)
+0321:		LDPCH	L38KH_CW_OUTA
+0322:		JNZ	L38KH_CW_OUTA	;;19
+          
+0323:		RETS
+        L38KH_CW_OUTL1:  
+0324:		NOP
+0325:		NOP
+0326:		NOP
+        L38KH_CW_OUTL2:  
+0327:		NOP
+0328:		LDPCH	L38KH_CW_OUTA
+0329:		JMP	L38KH_CW_OUTA
+            ;;------------------------------------------------------- 
+          
+          
+          
+          
+        MANAGE_LAST_PULSE:  
+          
+032A:		LD	A,#0AH
+032B:		LD	(R_TEMP1),A
+032C:		LD	A,#0EH
+032D:		LD	(R_TEMP2),A
+032E:		LD	A,#0BH
+032F:		LD	(R_TEMP3),A
+0330:		LDPCH	DELAYBITLLOOP
+0331:		JMP	DELAYBITLLOOP
+          
+          
+            ;;------------------------------------------------------- 
+        DELAYHEADL:		    ;;4570 
+0332:		LD	A,#0FH
+0333:		LD	(R_TEMP1),A
+0334:		LD	A,#08H
+0335:		LD	(R_TEMP2),A
+0336:		LD	A,#03H
+0337:		LD	(R_TEMP3),A
+0338:		LDPCH	DELAYBITLLOOP
+0339:		JMP	DELAYBITLLOOP
+            ;;---------------------------------------------- 
+        DELAYBIT1L:		    ;;1620 
+033A:		LD	A,#0FH
+033B:		LD	(R_TEMP1),A
+033C:		LD	A,#04H
+033D:		LD	(R_TEMP2),A
+033E:		LD	A,#01H
+033F:		LD	(R_TEMP3),A
+0340:		LDPCH	DELAYBITLLOOP
+0341:		JMP	DELAYBITLLOOP
+            ;;---------------------------------------------- 
+        DELAYBIT0L:		    ;;540 
+0342:		LD	A,#09H
+0343:		LD	(R_TEMP1),A
+0344:		LD	A,#06H
+0345:		LD	(R_TEMP2),A
+0346:		LD	A,#00H
+0347:		LD	(R_TEMP3),A
+            ;;---------------------------------------------- 
+        DELAYBITLLOOP:			    ;;5US 
+0348:		LD	A,(R_TEMP1)
+0349:		LDPCH	DELAYBITLA1
+034A:		JNZ	DELAYBITLA1
+034B:		LD	A,(R_TEMP2)
+034C:		LDPCH	DELAYBITLA2
+034D:		JNZ	DELAYBITLA2
+034E:		LD	A,(R_TEMP3)
+034F:		LDPCH	DELAYBITLA
+0350:		JNZ	DELAYBITLA
+0351:		RETS
+        DELAYBITLA1:  
+0352:		NOP
+0353:		NOP
+0354:		NOP
+        DELAYBITLA2:  
+0355:		NOP
+0356:		NOP
+0357:		NOP
+        DELAYBITLA:  
+0358:		NOP
+0359:		CLR	C
+035A:		DEC	(R_TEMP1)
+035B:		LD	A,(R_TEMP2)
+035C:		SBC	A,#0
+035D:		LD	(R_TEMP2),A
+035E:		LD	A,(R_TEMP3)
+035F:		SBC	A,#0
+0360:		LD	(R_TEMP3),A
+0361:		LDPCH	DELAYBITLLOOP
+0362:		JMP	DELAYBITLLOOP
+            ;;------------------------------------------------------------------------------- 
+            ;;		ORG	540H 
+            ;;------------------------------------------------------------------------------- 
+        T_LED_XTAL_CTRL:  
+0363:	PDW	00H
+            ;;		PDW	00H		;BIT1:XTAL IN  BIT0:LED NO, 
+            ;;		PDW	01H		;BIT1:XTAL IN  BIT0:LED YES, 
+            ;;		PDW	02H		;BIT1:XTAL OUT BIT0:LED NO, 
+            ;;		PDW	03H		;BIT1:XTAL OUT BIT0:LED YES, 
+            ;;------------------------------------------------------------------------------- 
+        T_CUSTOMERTABLE: 	    ;;**------------------------------->** 
+            ;;CUSTOMER	 1          2    3    4    5    6    7    8 
+0364~036B:	PDW	00111000B,007H,0FFH,0FFH,0FFH,0FFH,0FFH,0FFH
+            ;;------------------------------------------------------------------------------- 
+        T_KEYVALUETABLE:	    ;;****:**+** 
+036C:	PDW	01001000B
+036D:	PDW	00111000B
+036E:	PDW	00110010B
+036F:	PDW	10001000B
+0370:	PDW	00111000B
+0371:	PDW	10000000B
+0372:	PDW	01000000B
+0373:	PDW	11000000B
+0374:	PDW	00100000B
+0375:	PDW	10100000B
+0376:	PDW	01100000B
+0377:	PDW	11100000B
+0378:	PDW	00010000B
+0379:	PDW	10010000B
+037A:	PDW	11111010B
+037B:	PDW	00000000B
+037C:	PDW	10011000B
+037D:	PDW	11011010B
+037E:	PDW	00111000B
+037F:	PDW	01111000B
+0380:	PDW	01111010B
+0381:	PDW	00011000B
+0382:	PDW	01110000B
+0383:	PDW	01010000B
+0384:	PDW	11001000B
+0385:	PDW	11110000B
+0386:	PDW	11010000B
+0387:	PDW	11101000B
+0388:	PDW	10110000B
+0389:	PDW	00110000B
+038A:	PDW	11111111B
+038B:	PDW	01011000B
+038C:	PDW	00101000B
+038D:	PDW	11111111B
+038E:	PDW	11111111B
+038F:	PDW	11111000B
+0390:	PDW	11111000B
+0391:	PDW	10111010B
+0392:	PDW	10011000B
+0393:	PDW	10111000B
+0394:	PDW	0FFH
+0395:	PDW	0FFH
+0396:	PDW	0FFH
+0397:	PDW	0FFH
+0398:	PDW	0FFH
+0399:	PDW	0FFH
+039A:	PDW	0FFH
+039B:	PDW	0FFH
+039C:	PDW	0FFH
+039D:	PDW	0FFH
+039E:	PDW	0FFH
+039F:	PDW	0FFH
+03A0:	PDW	0FFH
+03A1:	PDW	0FFH
+03A2:	PDW	0FFH
+03A3:	PDW	0FFH
+03A4:	PDW	0FFH
+03A5:	PDW	0FFH
+03A6:	PDW	0FFH
+03A7:	PDW	0FFH
+03A8:	PDW	0FFH
+03A9:	PDW	0FFH
+03AA:	PDW	0FFH
+03AB:	PDW	0FFH
+03AC:	PDW	0FFH
+03AD:	PDW	0FFH
+03AE:	PDW	0FFH
+03AF:	PDW	0FFH
+03B0:	PDW	0FFH
+03B1:	PDW	0FFH
+03B2:	PDW	0FFH
+03B3:	PDW	0FFH
+03B4:	PDW	0FFH
+03B5:	PDW	0FFH
+03B6:	PDW	0FFH
+03B7:	PDW	0FFH
+03B8:	PDW	0FFH
+03B9:	PDW	0FFH
+03BA:	PDW	0FFH
+03BB:	PDW	0FFH
+03BC:	PDW	0FFH
+03BD:	PDW	0FFH
+03BE:	PDW	0FFH
+03BF:	PDW	0FFH
+03C0:	PDW	0FFH
+03C1:	PDW	0FFH
+03C2:	PDW	0FFH
+03C3:	PDW	0FFH
+03C4:	PDW	0FFH
+03C5:	PDW	0FFH
+03C6:	PDW	0FFH
